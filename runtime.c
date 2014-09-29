@@ -142,6 +142,11 @@ static void RunExternalCmd(commandT* cmd, bool fork)
   }
   else {
     printf("%s: command not found\n", cmd->argv[0]);
+    printf("Number of arguments (not counting command):%d\n", cmd->argc-1);
+    int i;
+    for (i=0;i<cmd->argc;i++) {
+       printf("Arg %d: %s", i, cmd->argv[i]);
+    }
     fflush(stdout);
     ReleaseCmdT(&cmd);
   }
