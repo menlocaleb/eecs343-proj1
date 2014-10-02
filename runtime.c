@@ -119,6 +119,9 @@ void RunCmdFork(commandT* cmd, bool fork)
 void RunCmdBg(commandT* cmd)
 {
   // TODO
+
+
+
 }
 
 void RunCmdPipe(commandT* cmd1, commandT* cmd2)
@@ -201,6 +204,7 @@ static bool ResolveExternalCmd(commandT* cmd)
 
 static void Exec(commandT* cmd, bool forceFork)
 {
+
   printf("comand: %s\n", cmd->name);
   pid_t rc = fork();
   if(rc < 0 ) { // fork failed
@@ -208,11 +212,23 @@ static void Exec(commandT* cmd, bool forceFork)
     exit(1);
   }
   else if(rc == 0){ //child process
+    // printf("the original groupdid is %d\n",(int) getpgrp());
+    // printf("last argc: %s",(cmd->argv[(cmd->argc)-1]));
+    if(cmd->bg == 1) {
+      if(setpgid(0,0)== -1) perror("setsid error");
+      // else printf("new groupdiid is %d\n",(int) getpgrp());
+    }
     execv(cmd->name,cmd->argv);
   }
   else{ //parent will have to wait for a child to terminate
-    waitpid(rc, NULL, 0);
-    printf("waiting\n");
+    // printf("waiting\n");
+    
+    // waitpid(rc, NULL, 0);
+    if(cmd -> bg == 0){
+      waitpid(rc, NULL, 0);
+    }
+      
+    
   }
   
 }
