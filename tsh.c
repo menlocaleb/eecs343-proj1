@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
+#include <stdio.h>
 
 /************Private include**********************************************/
 #include "tsh.h"
@@ -71,6 +72,8 @@ int main (int argc, char *argv[])
 
   while (!forceExit) /* repeat forever */
   {
+    // char *cur_dir = get_current_dir_name();
+    printf("!prompt:");
     /* read command line */
     getCommandLine(&cmdLine, BUFSIZE);
 

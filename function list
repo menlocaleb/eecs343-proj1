@@ -1,0 +1,35 @@
+/*list of function in files*/
+
+runtime.c
+
+static void RunCmdFork(commandT*, bool);
+/* runs an external program command after some checks */
+static void RunExternalCmd(commandT*, bool);
+/* resolves the path and checks for exutable flag */
+static bool ResolveExternalCmd(commandT*);
+/* forks and runs a external program */
+static void Exec(commandT*, bool);
+/* runs a builtin command */
+static void RunBuiltInCmd(commandT*);
+/* checks whether a command is a builtin command */
+static bool IsBuiltIn(char*);
+
+interpreter.c
+/*Parse the whole command line and split commands if a piped command is sent.*/
+void Interpret(char* cmdLine)
+
+io.c
+//Title: Print a message 
+EXTERN void Print(char*);
+
+//Title: Print a newline 
+EXTERN void PrintNewline();
+
+//Title: print an error message
+EXTERN void PrintPError(char*);
+
+ //Checks whether input is read from stdin 
+EXTERN bool IsReading();
+
+//read one command line from stdin 
+EXTERN void getCommandLine(char**, int);
