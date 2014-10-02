@@ -189,8 +189,9 @@ static bool ResolveExternalCmd(commandT* cmd)
         buf[j] = pathlist[i];
     }
     buf[j] = '\0';
-    strcat(buf, "/");
-    strcat(buf,cmd->argv[0]);
+    // at this point buf holds one path from list of paths in PATH
+    strcat(buf, "/"); // appends "/" to buf
+    strcat(buf,cmd->argv[0]); // buf is now path/command
     if(stat(buf, &fs) >= 0){
       if(S_ISDIR(fs.st_mode) == 0)
         if(access(buf,X_OK) == 0){/*Whether it's an executable or the user has required permisson to run it*/
