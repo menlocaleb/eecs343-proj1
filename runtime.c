@@ -137,16 +137,17 @@ void RunCmdRedirIn(commandT* cmd, char* file)
 /*Try to run an external command*/
 static void RunExternalCmd(commandT* cmd, bool fork)
 {
+
   if (ResolveExternalCmd(cmd)){
     Exec(cmd, fork);
   }
   else {
     printf("%s: command not found\n", cmd->argv[0]);
-    printf("Number of arguments (not counting command):%d\n", cmd->argc-1);
-    int i;
-    for (i=0;i<cmd->argc;i++) {
-       printf("Arg %d: %s", i, cmd->argv[i]);
-    }
+    // printf("Number of arguments (not counting command):%d\n", cmd->argc-1);
+    // int i;
+    // for (i=0;i<cmd->argc;i++) {
+    //    printf("Arg %d: %s", i, cmd->argv[i]);
+    // }
     fflush(stdout);
     ReleaseCmdT(&cmd);
   }
@@ -201,6 +202,20 @@ static bool ResolveExternalCmd(commandT* cmd)
 
 static void Exec(commandT* cmd, bool forceFork)
 {
+  printf("comand: %s\n", cmd->name);
+  pid_t rc = fork();
+  if(rc < 0 ) { // fork failed
+    fprintf(stderr,"fork failed\n");
+    exit(1);
+  }
+  else if(rc == 0){ //child process
+    execv(cmd->name,cmd->argv);
+  }
+  else{ //parent will have to wait for a child to terminate
+    waitpid(rc, NULL, 0);
+    printf("waiting\n");
+  }
+  
 }
 
 static bool IsBuiltIn(char* cmd)
