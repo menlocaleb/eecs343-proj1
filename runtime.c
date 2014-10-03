@@ -87,6 +87,14 @@ static void RunBuiltInCmd(commandT*);
 static bool IsBuiltIn(char*);
 /************External Declaration*****************************************/
 
+/*bckground job methods*/
+//move job to the back ground
+static void insert_job(pid_t);
+//remove a job from list
+static pid_t remove_job(pid_t);
+//get the next job
+static pid_t get_next_job(); 
+
 /**************Implementation***********************************************/
 int total_task;
 void RunCmd(commandT** cmd, int n)
@@ -206,31 +214,32 @@ static bool ResolveExternalCmd(commandT* cmd)
 static void Exec(commandT* cmd, bool forceFork)
 {
 
-  printf("comand: %s\n", cmd->name);
-  pid_t rc = fork();
-  if(rc < 0 ) { // fork failed
-    fprintf(stderr,"fork failed\n");
-    exit(1);
-  }
-  else if(rc == 0){ //child process
-    // printf("the original groupdid is %d\n",(int) getpgrp());
-    // printf("last argc: %s",(cmd->argv[(cmd->argc)-1]));
-    if(cmd->bg == 1) {
-      if(setpgid(0,0)== -1) perror("setsid error");
-      // else printf("new groupdiid is %d\n",(int) getpgrp());
+  // printf("comand: %s\n", cmd->name);
+  if (forceFork)
+  {
+      pid_t rc = fork();
+    if(rc < 0 ) { // fork failed
+      fprintf(stderr,"fork failed\n");
+      exit(1);
     }
+    else if(rc == 0){ //child process
+      
+      execv(cmd->name,cmd->argv);
+    }
+    else{ //parent will have to wait for a child to terminate
+      
+      if(cmd -> bg == 0){
+        waitpid(rc, NULL, 0);
+      }
+        
+      
+    }
+  }
+//no fork
+  else{
     execv(cmd->name,cmd->argv);
   }
-  else{ //parent will have to wait for a child to terminate
-    // printf("waiting\n");
-    
-    // waitpid(rc, NULL, 0);
-    if(cmd -> bg == 0){
-      waitpid(rc, NULL, 0);
-    }
-      
-    
-  }
+  
   
 }
 
@@ -273,4 +282,71 @@ void ReleaseCmdT(commandT **cmd){
   for(i = 0; i < (*cmd)->argc; i++)
     if((*cmd)->argv[i] != NULL) free((*cmd)->argv[i]);
   free(*cmd);
+}
+
+static void insert_job(pid_t pid){
+  bgjobL * to_insert = malloc(sizeof(bgjobL));
+  to_insert->pid = pid;
+  if (!bgjobs)
+  {
+    bgjobs = to_insert;
+  }
+  else if(!bgjobs->next) {
+    bgjobs->next = to_insert;
+  }
+  else{
+    bgjobL* iteration = bgjobs;
+    while(!iteration->next){
+      iteration = iteration->next;
+    }
+    iteration->next = to_insert;
+  }
+}
+
+static pid_t remove_job(pid_t pid){
+
+  if (!bgjobs) return -1;
+
+  //JOB->NULL
+  else if(!bgjobs->next) {
+    if(bgjobs->pid == pid){
+      bgjobs = NULL;
+      return pid;
+    }
+    else return -1;
+  }
+
+  else{
+    /*     bgjobs
+             |
+    //head->job->job->...->NULL
+    */
+    bgjobL* iteration = bgjobs;
+    bgjobL* head = malloc(sizeof(bgjobL));
+    head->pid = -1;
+    head->next = bgjobs;
+    bgjobL* previous = head;
+
+    /*     bgjobs
+             |
+    //head->job->job->...->NULL
+        |    |
+       pre  iter
+
+    */
+    while(iteration){
+
+      if(iteration->pid == pid){
+        previous->next = iteration->next;
+        bgjobs = head->next;
+        return pid;
+      }
+
+      previous = iteration;
+      iteration = iteration->next;
+
+    }
+    bgjobs = head->next;
+    return -1;
+  }
 }
