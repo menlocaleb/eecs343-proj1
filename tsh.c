@@ -70,13 +70,15 @@ int main (int argc, char *argv[])
   if (signal(SIGINT, sig) == SIG_ERR) PrintPError("SIGINT");
   if (signal(SIGTSTP, sig) == SIG_ERR) PrintPError("SIGTSTP");
 
+  
   while (!forceExit) /* repeat forever */
   {
     // char *cur_dir = get_current_dir_name();
     printf("!prompt:");
     /* read command line */
+    // printf("@:%s\n",cmdLine);
     getCommandLine(&cmdLine, BUFSIZE);
-
+    // printf("@@@:%s\n",cmdLine);
     if(strcmp(cmdLine, "exit") == 0)
     {
       forceExit=TRUE;
