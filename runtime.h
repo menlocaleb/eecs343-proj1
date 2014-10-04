@@ -65,6 +65,36 @@ typedef struct command_t
 } commandT;
 
 /************Global Variables*********************************************/
+//builtin cmds list
+/*struct builtinCmd builtinCmdList[] = {
+	{
+		.cmdName = "cd",
+		.func	=  cd_func
+	},
+	{
+		.cmdName = "bg",
+		.func	=  bg_func
+	},
+	{
+		.cmdName = "fg",
+		.func	=  fg_func
+	},
+	{
+		.cmdName = "jobs",
+		.func	=  jobs_func
+	},
+	{
+		.cmdName = "alias",
+		.func	=  alias_func
+	},
+	{
+		.cmdName = "unalias",
+		.func	=  unalias_func
+	}
+};
+*/
+
+
 
 /***********************************************************************
  *  Title: Force a program exit 

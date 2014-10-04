@@ -82,6 +82,7 @@ int main (int argc, char *argv[])
       forceExit=TRUE;
       continue;
     }
+    
 
     /* checks the status of background jobs */
     CheckJobs();
@@ -99,5 +100,6 @@ int main (int argc, char *argv[])
 
 static void sig(int signo)
 {
+
 }
 

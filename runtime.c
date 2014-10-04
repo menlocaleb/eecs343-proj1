@@ -66,7 +66,11 @@
 
 typedef struct bgjob_l {
   pid_t pid;
+  char * cmd;
+  int id;
+  // int status;
   struct bgjob_l* next;
+  
 } bgjobL;
 
 /* the pids of the background processes */
@@ -87,18 +91,32 @@ static void RunBuiltInCmd(commandT*);
 static bool IsBuiltIn(char*);
 /************External Declaration*****************************************/
 
-/*bckground job methods*/
+/*bckground job list methods*/
 //move job to the back ground
-static void insert_job(pid_t);
+static void insert_job(pid_t,const char *);
 //remove a job from list
 static pid_t remove_job(pid_t);
 //get the next job
 static pid_t get_next_job(); 
 
+/*background */
+static void jobs_func();
+
+static void cd_func(commandT*);
+
+static void bg_func(commandT*);
+
+static void fg_func(commandT*);
+
+static void alias_func(commandT*);
+
+static void unalias_func(commandT*);
+
 /**************Implementation***********************************************/
 int total_task;
 void RunCmd(commandT** cmd, int n)
 {
+  // printf("!!!%s\n",cmd[0]->cmdline );
   int i;
   total_task = n;
   if(n == 1)
@@ -116,6 +134,7 @@ void RunCmdFork(commandT* cmd, bool fork)
     return;
   if (IsBuiltIn(cmd->argv[0]))
   {
+    printf("%s\n","bulitin bitch!" );
     RunBuiltInCmd(cmd);
   }
   else
@@ -152,6 +171,8 @@ static void RunExternalCmd(commandT* cmd, bool fork)
   if (ResolveExternalCmd(cmd)){
     Exec(cmd, fork);
   }
+
+
   else {
     printf("%s: command not found\n", cmd->argv[0]);
     // printf("Number of arguments (not counting command):%d\n", cmd->argc-1);
@@ -200,6 +221,7 @@ static bool ResolveExternalCmd(commandT* cmd)
     // at this point buf holds one path from list of paths in PATH
     strcat(buf, "/"); // appends "/" to buf
     strcat(buf,cmd->argv[0]); // buf is now path/command
+    
     if(stat(buf, &fs) >= 0){
       if(S_ISDIR(fs.st_mode) == 0)
         if(access(buf,X_OK) == 0){/*Whether it's an executable or the user has required permisson to run it*/
@@ -218,21 +240,30 @@ static void Exec(commandT* cmd, bool forceFork)
   if (forceFork)
   {
       pid_t rc = fork();
+
     if(rc < 0 ) { // fork failed
       fprintf(stderr,"fork failed\n");
       exit(1);
     }
     else if(rc == 0){ //child process
-      
+
+      //if this is to run in background, set a new session
+      if(cmd->bg == 1) {
+        if(setpgid(0,0)== -1) perror("setsid error");
+      }
       execv(cmd->name,cmd->argv);
     }
     else{ //parent will have to wait for a child to terminate
       
+      //if it's to run foreground
       if(cmd -> bg == 0){
         waitpid(rc, NULL, 0);
       }
-        
-      
+
+      //if it's to run background
+      else{
+        insert_job(rc, cmd->argv[0]);
+      }      
     }
   }
 //no fork
@@ -245,12 +276,52 @@ static void Exec(commandT* cmd, bool forceFork)
 
 static bool IsBuiltIn(char* cmd)
 {
-  return FALSE;     
+  if(!strcmp(cmd, "cd")
+    ||!strcmp(cmd, "fg")
+    ||!strcmp(cmd, "bg")
+    ||!strcmp(cmd, "alias")
+    ||!strcmp(cmd, "jobs")
+    ||!strcmp(cmd, "unalias"))
+    return TRUE;
+  return FALSE;
+
 }
 
 
 static void RunBuiltInCmd(commandT* cmd)
 {
+  // cd cmd
+  if(!strcmp(cmd->argv[0],"cd")) {
+    cd_func(cmd);
+  }
+
+  //jobs cmd
+  else if(!strcmp(cmd->argv[0],"jobs")){
+    printf("%s\n", cmd->argv[0] );
+    jobs_func();
+  }
+
+  //fg cmd
+  else if(!strcmp(cmd->argv[0],"fg")){
+    fg_func(cmd);
+  }
+
+  //bg cmd
+  else if(!strcmp(cmd->argv[0],"bg")){
+    
+    bg_func(cmd);
+  }
+
+  //alias cmd
+  else if(!strcmp(cmd->argv[0],"alias")){
+    alias_func(cmd);
+  }
+
+  //unalias cmd
+  else {
+    unalias_func(cmd);
+  }
+
 }
 
 void CheckJobs()
@@ -284,21 +355,40 @@ void ReleaseCmdT(commandT **cmd){
   free(*cmd);
 }
 
-static void insert_job(pid_t pid){
-  bgjobL * to_insert = malloc(sizeof(bgjobL));
-  to_insert->pid = pid;
+static void insert_job(pid_t pid, const char * cmd){
+
+  // printf("inserting\n");
+  bgjobL* to_insert = malloc(sizeof(bgjobL));
+
+  to_insert->cmd = (char*)malloc(500*sizeof(char));
+  strcpy(to_insert->cmd,cmd);
+
+  // printf("!!!inserting %s+%d\n", to_insert->cmd, pid);
+
   if (!bgjobs)
   {
+    // printf("emptylist !\n");
+    to_insert->id = 1;
     bgjobs = to_insert;
+
   }
+  //job -> NULL
   else if(!bgjobs->next) {
+    // printf("one in list\n");
+    to_insert->id = 2;
     bgjobs->next = to_insert;
   }
+
   else{
+    // printf("many in list\n");
+    int id = 2;
     bgjobL* iteration = bgjobs;
-    while(!iteration->next){
+    while(iteration->next){
       iteration = iteration->next;
+      id++;
+      // printf("%d\n^^s^", id);
     }
+    to_insert->id = id;
     iteration->next = to_insert;
   }
 }
@@ -339,6 +429,7 @@ static pid_t remove_job(pid_t pid){
       if(iteration->pid == pid){
         previous->next = iteration->next;
         bgjobs = head->next;
+        free(iteration);
         return pid;
       }
 
@@ -347,6 +438,48 @@ static pid_t remove_job(pid_t pid){
 
     }
     bgjobs = head->next;
+    
     return -1;
   }
+}
+static void jobs_func(){
+  //NULL
+  if(!bgjobs) {
+    printf("No jobs to show\n");
+    return;
+  }
+
+  bgjobL* head = malloc(sizeof(bgjobL));
+  head->next = bgjobs;
+
+  bgjobL * iteration = bgjobs;
+  // if(iteration == NULL) printf("####");
+
+  // printf("[%d]   %s+\n", iteration->id, iteration->cmd);
+  while(iteration){
+    printf("[%d]   %s+\n", iteration->id, iteration->cmd);
+    iteration = iteration->next;
+  }
+
+}
+
+
+static void cd_func(commandT* cmd){
+  printf("%s\n not implemented", cmd->argv[0]);
+}
+
+static void bg_func(commandT* cmd){
+  printf("%s\n not implemented", cmd->argv[0]);
+}
+
+static void fg_func(commandT* cmd){
+  printf("%s\n not implemented", cmd->argv[0]);
+}
+
+static void alias_func(commandT* cmd){
+  printf("%s\n not implemented", cmd->argv[0]);
+}
+
+static void unalias_func(commandT* cmd){
+  printf("%s\n not implemented", cmd->argv[0]);
 }
