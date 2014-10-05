@@ -64,6 +64,19 @@ typedef struct command_t
   char* argv[];
 } commandT;
 
+typedef enum {RUNNING, DONE, SUSPENDED, STOPPED} status_p;
+status_p fgstatus;
+
+typedef struct bgjob_l {
+  pid_t pid;
+  char * cmd;
+  int id;
+  status_p bg_status;
+  struct bgjob_l* next;
+
+  
+} bgjobL;
+
 /************Global Variables*********************************************/
 //builtin cmds list
 /*struct builtinCmd builtinCmdList[] = {

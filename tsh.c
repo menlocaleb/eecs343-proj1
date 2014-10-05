@@ -35,6 +35,7 @@
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 /************Private include**********************************************/
 #include "tsh.h"
@@ -52,10 +53,20 @@
 #define BUFSIZE 80
 
 /************Global Variables*********************************************/
+extern pid_t fgpid;
+extern status_p fgstatus;
+extern char * fgcmd;
 
 /************Function Prototypes******************************************/
+
+extern bgjobL* get_bgjob_by_pid(pid_t);
+extern void add_job(pid_t pid, const char * cmd, status_p st);
+extern pid_t waitpid(pid_t pid, int* status, int options);
 /* handles SIGINT and SIGSTOP signals */	
 static void sig(int);
+/* handles SIGCHLD signals */
+static void child_handler();
+static void stop_handler();
 
 /************External Declaration*****************************************/
 
@@ -69,6 +80,7 @@ int main (int argc, char *argv[])
   /* shell initialization */
   if (signal(SIGINT, sig) == SIG_ERR) PrintPError("SIGINT");
   if (signal(SIGTSTP, sig) == SIG_ERR) PrintPError("SIGTSTP");
+  if (signal(SIGCHLD, sig) == SIG_ERR) PrintPError("SIGTCHLD");
 
   
   while (!forceExit) /* repeat forever */
@@ -85,13 +97,15 @@ int main (int argc, char *argv[])
       continue;
     }
     
-
+    fgpid = 0;
     /* checks the status of background jobs */
     CheckJobs();
 
     /* interpret command and line
      * includes executing of commands */
     Interpret(cmdLine);
+
+    fgpid = 0;
 
   }
 
@@ -102,6 +116,51 @@ int main (int argc, char *argv[])
 
 static void sig(int signo)
 {
+  //child terminating signal caught
+  if (signo == SIGCHLD)
+  {
+    // printf("child terminate!!!!\n");
+    child_handler();
+  }
+  if(signo == SIGTSTP){
+    stop_handler();
+  }
+  // ctrl+c caught
+  if (signo == SIGINT){
 
+  }
 }
 
+static void child_handler(){
+  pid_t childpid;
+  int status;
+  //catching the terminated pid
+  childpid = waitpid(-1, &status, WUNTRACED | WNOHANG);
+
+  // if the caught pid is foreground
+  if (fgpid == childpid){
+    fgstatus = STOPPED;
+  }
+  //if the caught pid is bachground
+  else if (WIFEXITED(status) || WIFSIGNALED(status)) 
+  {
+    bgjobL* target = get_bgjob_by_pid(childpid);
+    if(!target) {return;}
+    else{
+      target->bg_status = DONE;
+    }
+  }
+}
+
+static void stop_handler(){
+  if(fgpid==-1){
+    return;
+  }
+  //something is running on foreground
+  else{
+    kill(-fgpid, SIGTSTP);
+    fgpid = -1;
+    add_job(fgpid, fgcmd, SUSPENDED);
+    fflush(stdout);
+  }
+}

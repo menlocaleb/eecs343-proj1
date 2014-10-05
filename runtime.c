@@ -64,17 +64,17 @@
 
 #define NBUILTINCOMMANDS (sizeof BuiltInCommands / sizeof(char*))
 
-typedef struct bgjob_l {
-  pid_t pid;
-  char * cmd;
-  int id;
-  // int status;
-  struct bgjob_l* next;
-  
-} bgjobL;
 
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
+
+//
+
+
+//foreground process pid
+pid_t fgpid = -1;
+status_p fgstatus;
+char * fgcmd;
 
 /************Function Prototypes******************************************/
 /* run command */
@@ -92,12 +92,22 @@ static bool IsBuiltIn(char*);
 /************External Declaration*****************************************/
 
 /*bckground job list methods*/
+
+void waitfg();
 //move job to the back ground
-static void insert_job(pid_t,const char *);
+void add_job(pid_t,const char *,status_p st);
 //remove a job from list
-static pid_t remove_job(pid_t);
+pid_t remove_job(pid_t);
 //get the next job
-static pid_t get_next_job(); 
+pid_t get_next_job(); 
+
+int get_bgjobid_by_pid(pid_t);
+
+bgjobL* get_bgjob_by_pid(pid_t);
+
+bgjobL* get_last_job();
+
+static char * status_to_string(status_p st);
 
 /*background */
 static void jobs_func();
@@ -134,7 +144,6 @@ void RunCmdFork(commandT* cmd, bool fork)
     return;
   if (IsBuiltIn(cmd->argv[0]))
   {
-    printf("%s\n","bulitin bitch!" );
     RunBuiltInCmd(cmd);
   }
   else
@@ -235,8 +244,13 @@ static bool ResolveExternalCmd(commandT* cmd)
 
 static void Exec(commandT* cmd, bool forceFork)
 {
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask,SIGCHLD);
 
   // printf("comand: %s\n", cmd->name);
+
+  sigprocmask(SIG_BLOCK,&mask,NULL);
   if (forceFork)
   {
       pid_t rc = fork();
@@ -247,22 +261,26 @@ static void Exec(commandT* cmd, bool forceFork)
     }
     else if(rc == 0){ //child process
 
-      //if this is to run in background, set a new session
-      if(cmd->bg == 1) {
-        if(setpgid(0,0)== -1) perror("setsid error");
-      }
+      if(setpgid(0,0)== -1) perror("setsid error");
       execv(cmd->name,cmd->argv);
     }
     else{ //parent will have to wait for a child to terminate
       
       //if it's to run foreground
       if(cmd -> bg == 0){
-        waitpid(rc, NULL, 0);
+        fgstatus = RUNNING;
+        fgpid = rc;
+        fgcmd = cmd->cmdline;
+        sigprocmask(SIG_UNBLOCK,&mask,NULL);
+        // waitpid(rc, NULL, 0);
+        waitfg();
+        
       }
 
       //if it's to run background
       else{
-        insert_job(rc, cmd->argv[0]);
+        sigprocmask(SIG_UNBLOCK,&mask,NULL);        
+        add_job(rc, cmd->cmdline, RUNNING);
       }      
     }
   }
@@ -326,6 +344,24 @@ static void RunBuiltInCmd(commandT* cmd)
 
 void CheckJobs()
 {
+  if (!bgjobs)
+  {
+    return;
+  }
+
+  bgjobL* iteration = bgjobs;
+  while(iteration){
+    if(iteration->bg_status == DONE) {
+      pid_t id_removed = iteration->id;
+      status_p status_removed = DONE;
+      char * cmd_removed = iteration->cmd;
+
+      remove_job(iteration->pid);
+      printf("[%d] [%s] %s \n", id_removed, status_to_string(status_removed),cmd_removed);
+    }
+    iteration = iteration->next;
+  }
+  return;
 }
 
 
@@ -355,45 +391,46 @@ void ReleaseCmdT(commandT **cmd){
   free(*cmd);
 }
 
-static void insert_job(pid_t pid, const char * cmd){
+void add_job(pid_t pid, const char * cmd, status_p st){
 
   // printf("inserting\n");
   bgjobL* to_insert = malloc(sizeof(bgjobL));
 
   to_insert->cmd = (char*)malloc(500*sizeof(char));
   strcpy(to_insert->cmd,cmd);
+  to_insert->bg_status = st;
+  to_insert->pid = pid;
+  bgjobL * last =get_last_job();
+
+  to_insert->id = last ? ((last->id)+1) : 1 ;
+  // printf("to to_insert%s %d",to_insert->cmd,to_insert->id);
 
   // printf("!!!inserting %s+%d\n", to_insert->cmd, pid);
 
   if (!bgjobs)
   {
     // printf("emptylist !\n");
-    to_insert->id = 1;
     bgjobs = to_insert;
 
   }
   //job -> NULL
   else if(!bgjobs->next) {
     // printf("one in list\n");
-    to_insert->id = 2;
     bgjobs->next = to_insert;
   }
 
+  //job->jobg->...->NULL
   else{
     // printf("many in list\n");
-    int id = 2;
     bgjobL* iteration = bgjobs;
     while(iteration->next){
       iteration = iteration->next;
-      id++;
-      // printf("%d\n^^s^", id);
     }
-    to_insert->id = id;
     iteration->next = to_insert;
   }
 }
 
-static pid_t remove_job(pid_t pid){
+pid_t remove_job(pid_t pid){
 
   if (!bgjobs) return -1;
 
@@ -442,6 +479,49 @@ static pid_t remove_job(pid_t pid){
     return -1;
   }
 }
+
+bgjobL* get_bgjob_by_pid(pid_t pid){
+
+  if (!bgjobs)
+  {
+    return NULL;
+  }
+
+
+  bgjobL* iteration = bgjobs;
+  while(iteration){
+    if(iteration->pid == pid) return iteration;
+    iteration= iteration->next;
+  }
+
+  return NULL;
+}
+
+int get_bgjobid_by_pid(pid_t pid){
+  bgjobL * result = get_bgjob_by_pid(pid);
+  if(!result) return -1;
+  else{
+    return result->id;
+  }
+}
+
+bgjobL * get_last_job(){
+  if (!bgjobs)
+  {
+    return NULL;
+  }
+
+
+  bgjobL* iteration = bgjobs;
+  while(iteration){
+    if(!iteration->next) break;
+    iteration= iteration->next;
+  }
+
+
+  return iteration;
+}
+
 static void jobs_func(){
   //NULL
   if(!bgjobs) {
@@ -453,11 +533,20 @@ static void jobs_func(){
   head->next = bgjobs;
 
   bgjobL * iteration = bgjobs;
-  // if(iteration == NULL) printf("####");
-
-  // printf("[%d]   %s+\n", iteration->id, iteration->cmd);
+  
   while(iteration){
-    printf("[%d]   %s+\n", iteration->id, iteration->cmd);
+    if(iteration->bg_status == DONE) {
+      pid_t id_removed = iteration->id;
+      status_p status_removed = DONE;
+      char * cmd_removed = iteration->cmd;
+
+      remove_job(iteration->pid);
+      printf("[%d] [%s] %s \n", id_removed, status_to_string(status_removed),cmd_removed);
+    }
+    else{
+      printf("[%d] [%s] %s \n", iteration->id, status_to_string(iteration->bg_status),iteration->cmd);
+    }
+    
     iteration = iteration->next;
   }
 
@@ -482,4 +571,21 @@ static void alias_func(commandT* cmd){
 
 static void unalias_func(commandT* cmd){
   printf("%s\n not implemented", cmd->argv[0]);
+}
+
+static char * status_to_string(status_p st){
+  switch (st) 
+   {
+      case RUNNING: return "RUNNING";
+      case DONE: return "DONE";
+      case STOPPED: return "STOPPED";
+      case SUSPENDED: return "SUSPENDED";
+      default: return "N/A";
+   }
+}
+
+void waitfg(){
+   while(fgpid != -1){
+           sleep(1);
+    }
 }
