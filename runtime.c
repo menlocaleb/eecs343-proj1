@@ -314,7 +314,7 @@ static void RunBuiltInCmd(commandT* cmd)
 
   //jobs cmd
   else if(!strcmp(cmd->argv[0],"jobs")){
-    printf("%s\n", cmd->argv[0] );
+    // printf("%s\n", cmd->argv[0] );
     jobs_func();
   }
 
@@ -356,7 +356,13 @@ void CheckJobs()
       char * cmd_removed = iteration->cmd;
 
       remove_job(iteration->pid);
-      printf("[%d] [%s] %s \n", id_removed, status_to_string(status_removed),cmd_removed);
+
+      char str[200];
+      sprintf(str,"[%d]   Done             %s\n", iteration->id, iteration-> cmd);
+      
+      write(STDOUT_FILENO, str, strlen(str));
+      // free(str);
+      
     }
     iteration = iteration->next;
   }
@@ -537,7 +543,7 @@ bgjobL* get_bgjob_by_id(int id){
 static void jobs_func(){
   //NULL
   if(!bgjobs) {
-    printf("No jobs to show\n");
+    // printf("No jobs to show\n");
     return;
   }
 
@@ -553,11 +559,42 @@ static void jobs_func(){
       char * cmd_removed = iteration->cmd;
 
       remove_job(iteration->pid);
-      printf("[%d] [%s] %s \n", id_removed, status_to_string(status_removed),cmd_removed);
+      char str[200];
+      sprintf(str,"[%d]   Done             %s\n", id_removed, cmd_removed);
+      
+      write(STDOUT_FILENO, str, strlen(str));
+      // free(str);
+      
+      // printf("[%d]   Done             %s\n", );
     }
-    else{
-      printf("[%d] [%d] [%s] %s \n", iteration->id,iteration->pid, status_to_string(iteration->bg_status),iteration->cmd);
-    }
+    if (iteration->bg_status == RUNNING)
+      {
+        char *command = (char *) malloc(500 * sizeof(char));
+        strcpy(command, iteration->cmd);
+        if (command[strlen(command) - 1] != '&') strcat(command, "&");
+        printf("[%d]      Running                  %s\n", iteration->id, command);
+        fflush(stdout);
+        free(command);
+      }
+      else if (iteration->bg_status == SUSPENDED)
+      {
+        printf("[%d]      Stopped                  %s\n", iteration->id, iteration->cmd);
+        fflush(stdout);
+      }
+      
+
+
+    // if(iteration->bg_status == DONE) {
+    //   pid_t id_removed = iteration->id;
+    //   status_p status_removed = DONE;
+    //   char * cmd_removed = iteration->cmd;
+
+    //   remove_job(iteration->pid);
+    //   printf("[%d] [%s] %s \n", id_removed, status_to_string(status_removed),cmd_removed);
+    // }
+    // else{
+    //   printf("[%d] [%d] [%s] %s \n", iteration->id,iteration->pid, status_to_string(iteration->bg_status),iteration->cmd);
+    // }
     
     iteration = iteration->next;
   }
@@ -593,7 +630,8 @@ static void bg_func(commandT* cmd){
     }
 
     else if(target->bg_status == SUSPENDED){
-      printf("cont-b%d\n", kill(-(target->pid), SIGCONT));
+      // printf("cont-b%d\n", kill(-(target->pid), SIGCONT));
+      kill(-(target->pid), SIGCONT);
       target->bg_status = RUNNING;
     }
   }
@@ -624,8 +662,8 @@ static void fg_func(commandT* cmd){
     else{
       fgpid = target->pid;
       fgstatus = target -> bg_status;
-      printf("%s\n", target -> cmd);
-      printf("cont_f%d\n", kill(-fgpid, SIGCONT));
+      // printf("cont_f%d\n", kill(-fgpid, SIGCONT));
+      kill(-fgpid, SIGCONT);
       waitfg();
     }
   }

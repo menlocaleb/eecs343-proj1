@@ -86,7 +86,7 @@ int main (int argc, char *argv[])
   while (!forceExit) /* repeat forever */
   {
     // char *cur_dir = get_current_dir_name();
-    printf("!prompt:%d",fgpid);
+    // printf("!prompt:%d",fgpid);
     /* read command line */
     // printf("@:%s\n",cmdLine);
     getCommandLine(&cmdLine, BUFSIZE);
@@ -127,7 +127,10 @@ static void sig(int signo)
   }
   // ctrl+c caught
   if (signo == SIGINT){
-
+    if (fgpid != -1)
+    {
+      kill(-fgpid, SIGINT);
+    }
   }
 }
 
@@ -149,11 +152,11 @@ static void child_handler(){
   if(!target) {return;}
   else {
     if (WIFSTOPPED(status)){
-      printf("SUSPENDED!\n");
+      // printf("SUSPENDED!\n");
       target->bg_status = SUSPENDED;
     }
     else{
-      printf("it's done\n");
+      // printf("it's done\n");
       target->bg_status = DONE;
     }
   }
@@ -162,18 +165,18 @@ static void child_handler(){
 
 static void stop_handler(){
   if(fgpid==-1){
-    printf("never enter\n");
+    // printf("never enter\n");
     return;
   }
   //something is running on foreground
   else{
     bgjobL * target =  get_bgjob_by_pid(fgpid);
     if(!target){
-      printf("no such job inseting\n");
+      // printf("no such job inseting\n");
       add_job(fgpid, fgcmd, SUSPENDED);
     }
     else{
-      printf("got it\n");
+      // printf("got it\n");
       target ->bg_status = SUSPENDED;
     }
     kill(-fgpid, SIGTSTP);
