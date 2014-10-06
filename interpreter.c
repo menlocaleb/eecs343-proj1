@@ -198,13 +198,13 @@ void Interpret(char* cmdLine)
   }
   parser_single(&(cmdLine[i-j]), j, &(command[task]),bg);
 
-  printf("argc:%d\n",command[0]->argc);
-  int x = 0;
-  printf("argv:\n");
-  for(x =0;x<command[0]->argc;x++){
-    printf("Arg %d: %s ", x, command[0]->argv[x]);
-  }
-  printf("\n");
+  // printf("argc:%d\n",command[0]->argc);
+  // int x = 0;
+  // printf("argv:\n");
+  // for(x =0;x<command[0]->argc;x++){
+  //   printf("Arg %d: %s ", x, command[0]->argv[x]);
+  // }
+  // printf("\n");
 
   RunCmd(command, task+1);
   free(command);

@@ -107,6 +107,8 @@ bgjobL* get_bgjob_by_pid(pid_t);
 
 bgjobL* get_last_job();
 
+bgjobL* get_bgjob_by_id(int);
+
 static char * status_to_string(status_p st);
 
 /*background */
@@ -154,9 +156,6 @@ void RunCmdFork(commandT* cmd, bool fork)
 
 void RunCmdBg(commandT* cmd)
 {
-  // TODO
-
-
 
 }
 
@@ -511,17 +510,30 @@ bgjobL * get_last_job(){
     return NULL;
   }
 
-
   bgjobL* iteration = bgjobs;
   while(iteration){
     if(!iteration->next) break;
     iteration= iteration->next;
   }
+  return iteration;
+}
 
+bgjobL* get_bgjob_by_id(int id){
+  if (!bgjobs)
+  {
+    return NULL;
+  }
+
+  bgjobL* iteration = bgjobs;
+  while(iteration){
+    if(iteration->id == id) break;
+    iteration= iteration->next;
+  }
 
   return iteration;
 }
 
+/*builtin functions*/
 static void jobs_func(){
   //NULL
   if(!bgjobs) {
@@ -544,7 +556,7 @@ static void jobs_func(){
       printf("[%d] [%s] %s \n", id_removed, status_to_string(status_removed),cmd_removed);
     }
     else{
-      printf("[%d] [%s] %s \n", iteration->id, status_to_string(iteration->bg_status),iteration->cmd);
+      printf("[%d] [%d] [%s] %s \n", iteration->id,iteration->pid, status_to_string(iteration->bg_status),iteration->cmd);
     }
     
     iteration = iteration->next;
@@ -552,17 +564,72 @@ static void jobs_func(){
 
 }
 
-
+//bg function resume the job in the background
 static void cd_func(commandT* cmd){
-  printf("%s\n not implemented", cmd->argv[0]);
+  int res;
+  if(cmd->argc > 1){
+    res =chdir(cmd->argv[1]);
+  }
+  else{
+    res = chdir(getenv("HOME"));
+  }
+  if(res) printf("error cd\n");
 }
 
 static void bg_func(commandT* cmd){
-  printf("%s\n not implemented", cmd->argv[0]);
+  pid_t id = atoi(cmd->argv[1]);
+
+  bgjobL * target = get_bgjob_by_id(id);
+  if(!target) {
+    printf("bg: %d: no such job\n",id);
+    return;
+  }
+  else{
+    if(target->bg_status == RUNNING){
+      printf("bg: %d: already in the background\n",id);
+    }
+    else if(target->bg_status == DONE){
+      printf("bg: %d: no such job\n",id);
+    }
+
+    else if(target->bg_status == SUSPENDED){
+      printf("cont-b%d\n", kill(-(target->pid), SIGCONT));
+      target->bg_status = RUNNING;
+    }
+  }
+  return;
 }
 
+
 static void fg_func(commandT* cmd){
-  printf("%s\n not implemented", cmd->argv[0]);
+  pid_t id = atoi(cmd->argv[1]);
+
+  bgjobL * target = get_bgjob_by_id(id);
+  //no such job
+  if(!target) {
+    printf("fg: %d: no such job\n",id);
+    return;
+  }
+
+
+  else{
+    //the job is already done
+    if(target->bg_status == DONE){
+      fgpid = -1;
+      fgstatus = DONE;
+      printf("fg: job has terminated\n");
+    }
+
+
+    else{
+      fgpid = target->pid;
+      fgstatus = target -> bg_status;
+      printf("%s\n", target -> cmd);
+      printf("cont_f%d\n", kill(-fgpid, SIGCONT));
+      waitfg();
+    }
+  }
+  return;
 }
 
 static void alias_func(commandT* cmd){
@@ -585,7 +652,7 @@ static char * status_to_string(status_p st){
 }
 
 void waitfg(){
-   while(fgpid != -1){
-           sleep(1);
-    }
+  while(fgpid > 0){
+    sleep(1);
+  }
 }

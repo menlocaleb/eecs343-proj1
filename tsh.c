@@ -58,7 +58,7 @@ extern status_p fgstatus;
 extern char * fgcmd;
 
 /************Function Prototypes******************************************/
-
+extern pid_t remove_job(pid_t);
 extern bgjobL* get_bgjob_by_pid(pid_t);
 extern void add_job(pid_t pid, const char * cmd, status_p st);
 extern pid_t waitpid(pid_t pid, int* status, int options);
@@ -86,7 +86,7 @@ int main (int argc, char *argv[])
   while (!forceExit) /* repeat forever */
   {
     // char *cur_dir = get_current_dir_name();
-    printf("!prompt:");
+    printf("!prompt:%d",fgpid);
     /* read command line */
     // printf("@:%s\n",cmdLine);
     getCommandLine(&cmdLine, BUFSIZE);
@@ -97,7 +97,7 @@ int main (int argc, char *argv[])
       continue;
     }
     
-    fgpid = 0;
+    fgpid = -1;
     /* checks the status of background jobs */
     CheckJobs();
 
@@ -105,7 +105,7 @@ int main (int argc, char *argv[])
      * includes executing of commands */
     Interpret(cmdLine);
 
-    fgpid = 0;
+    fgpid = -1;
 
   }
 
@@ -139,28 +139,45 @@ static void child_handler(){
 
   // if the caught pid is foreground
   if (fgpid == childpid){
-    fgstatus = STOPPED;
+    remove_job(fgpid);
+    fgpid =-1;
+    fgstatus = DONE;
+    return;
   }
   //if the caught pid is bachground
-  else if (WIFEXITED(status) || WIFSIGNALED(status)) 
-  {
-    bgjobL* target = get_bgjob_by_pid(childpid);
-    if(!target) {return;}
+  bgjobL* target = get_bgjob_by_pid(childpid);
+  if(!target) {return;}
+  else {
+    if (WIFSTOPPED(status)){
+      printf("SUSPENDED!\n");
+      target->bg_status = SUSPENDED;
+    }
     else{
+      printf("it's done\n");
       target->bg_status = DONE;
     }
   }
+  return;
 }
 
 static void stop_handler(){
   if(fgpid==-1){
+    printf("never enter\n");
     return;
   }
   //something is running on foreground
   else{
+    bgjobL * target =  get_bgjob_by_pid(fgpid);
+    if(!target){
+      printf("no such job inseting\n");
+      add_job(fgpid, fgcmd, SUSPENDED);
+    }
+    else{
+      printf("got it\n");
+      target ->bg_status = SUSPENDED;
+    }
     kill(-fgpid, SIGTSTP);
     fgpid = -1;
-    add_job(fgpid, fgcmd, SUSPENDED);
     fflush(stdout);
   }
 }
