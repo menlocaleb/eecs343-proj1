@@ -109,7 +109,7 @@ bgjobL* get_last_job();
 
 bgjobL* get_bgjob_by_id(int);
 
-static char * status_to_string(status_p st);
+// static char * status_to_string(status_p st);
 
 /*background */
 static void jobs_func();
@@ -352,16 +352,17 @@ void CheckJobs()
   bgjobL* iteration = bgjobs;
   while(iteration){
     if(iteration->bg_status == DONE) {
-      pid_t id_removed = iteration->id;
-      status_p status_removed = DONE;
-      char * cmd_removed = iteration->cmd;
+      // pid_t id_removed = iteration->id;
+      // status_p status_removed = DONE;
+      // char * cmd_removed = iteration->cmd;
 
       remove_job(iteration->pid);
 
       char str[200];
       sprintf(str,"[%d]   Done             %s\n", iteration->id, iteration-> cmd);
       
-      write(STDOUT_FILENO, str, strlen(str));
+      int none = write(STDOUT_FILENO, str, strlen(str));
+      if(none<0) printf("wrong\n");
       // free(str);
       
     }
@@ -556,15 +557,15 @@ static void jobs_func(){
   while(iteration){
     if(iteration->bg_status == DONE) {
       pid_t id_removed = iteration->id;
-      status_p status_removed = DONE;
+      // status_p status_removed = DONE;
       char * cmd_removed = iteration->cmd;
 
       remove_job(iteration->pid);
       char str[200];
       sprintf(str,"[%d]   Done             %s\n", id_removed, cmd_removed);
       
-      write(STDOUT_FILENO, str, strlen(str));
-
+      int none = write(STDOUT_FILENO, str, strlen(str));
+      if(none<0) printf("wrong\n");
     }
     if (iteration->bg_status == RUNNING)
     {
@@ -575,7 +576,8 @@ static void jobs_func(){
       char str[200];
       sprintf(str,"[%d]   Running             %s\n", iteration->id, command);
       
-      write(STDOUT_FILENO, str, strlen(str));
+      int none = write(STDOUT_FILENO, str, strlen(str));
+      if(none<0) printf("wrong\n");
       // printf("[%d]                        %s\n", iteration->id, command);
       fflush(stdout);
       free(command);
@@ -585,7 +587,8 @@ static void jobs_func(){
       char str[200];
       sprintf(str,"[%d]   Stopped             %s\n", iteration->id, iteration->cmd);
       
-      write(STDOUT_FILENO, str, strlen(str));
+      int none = write(STDOUT_FILENO, str, strlen(str));
+      if(none<0) printf("wrong\n");
       fflush(stdout);
     }
     // if(iteration->bg_status == DONE) {
@@ -682,16 +685,16 @@ static void unalias_func(commandT* cmd){
   printf("%s\n not implemented", cmd->argv[0]);
 }
 
-static char * status_to_string(status_p st){
-  switch (st) 
-   {
-      case RUNNING: return "RUNNING";
-      case DONE: return "DONE";
-      case STOPPED: return "STOPPED";
-      case SUSPENDED: return "SUSPENDED";
-      default: return "N/A";
-   }
-}
+// static char * status_to_string(status_p st){
+//   switch (st) 
+//    {
+//       case RUNNING: return "RUNNING";
+//       case DONE: return "DONE";
+//       case STOPPED: return "STOPPED";
+//       case SUSPENDED: return "SUSPENDED";
+//       default: return "N/A";
+//    }
+// }
 
 void waitfg(){
   while(fgpid > 0){

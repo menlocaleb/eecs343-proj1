@@ -185,8 +185,8 @@ static void stop_handler(){
       sprintf(str,"[%d]   %s         %s\n", 
         lastJob ? lastJob->id + 1 : 1, "Stopped", fgcmd);
       
-      write(STDOUT_FILENO, str, strlen(str));
-
+      int none = write(STDOUT_FILENO, str, strlen(str));
+      if (none < 0) return;
       add_job(fgpid, fgcmd, SUSPENDED);
     }
     else{
@@ -197,8 +197,8 @@ static void stop_handler(){
       sprintf(str,"[%d]    %s         %s\n", 
         target->id, "Stopped", target->cmd);
       
-      write(STDOUT_FILENO, str, strlen(str));
-      
+      int none = write(STDOUT_FILENO, str, strlen(str));
+      if (none<0) return;
 	// printf("[%d]    %s         %s\n", target->id, "Stopped", target->cmd);
     }
     kill(-fgpid, SIGTSTP);
