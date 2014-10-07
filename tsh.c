@@ -67,6 +67,7 @@ static void sig(int);
 /* handles SIGCHLD signals */
 static void child_handler();
 static void stop_handler();
+extern bgjobL* get_last_job();
 
 /************External Declaration*****************************************/
 
@@ -172,12 +173,28 @@ static void stop_handler(){
   else{
     bgjobL * target =  get_bgjob_by_pid(fgpid);
     if(!target){
-      // printf("no such job inseting\n");
+	bgjobL* lastJob = get_last_job();
+  // if(!lastJob) printf("null\n");
+      
+      char str[200];
+      sprintf(str,"[%d]    %s         %s\n", 
+        lastJob ? lastJob->id + 1 : 1, "Stopped", fgcmd);
+      
+      write(STDOUT_FILENO, str, strlen(str));
+
       add_job(fgpid, fgcmd, SUSPENDED);
     }
     else{
       // printf("got it\n");
+      // printf("!!\n");
       target ->bg_status = SUSPENDED;
+      char str[200];
+      sprintf(str,"[%d]    %s         %s\n", 
+        target->id, "Stopped", target->cmd);
+      
+      write(STDOUT_FILENO, str, strlen(str));
+      
+	// printf("[%d]    %s         %s\n", target->id, "Stopped", target->cmd);
     }
     kill(-fgpid, SIGTSTP);
     fgpid = -1;

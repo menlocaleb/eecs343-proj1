@@ -1,0 +1,5 @@
+[1]    Stopped         bash -c "sleep 4; echo hello1;"
+[1]      Stopped                  bash -c "sleep 4; echo hello1;"
+[1]      Running                  bash -c "sleep 4; echo hello1;"&
+hello1
+hello2

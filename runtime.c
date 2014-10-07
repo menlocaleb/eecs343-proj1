@@ -618,15 +618,15 @@ static void bg_func(commandT* cmd){
 
   bgjobL * target = get_bgjob_by_id(id);
   if(!target) {
-    printf("bg: %d: no such job\n",id);
+    // printf("bg: %d: no such job\n",id);
     return;
   }
   else{
     if(target->bg_status == RUNNING){
-      printf("bg: %d: already in the background\n",id);
+      // printf("bg: %d: already in the background\n",id);
     }
     else if(target->bg_status == DONE){
-      printf("bg: %d: no such job\n",id);
+      // printf("bg: %d: no such job\n",id);
     }
 
     else if(target->bg_status == SUSPENDED){
@@ -645,7 +645,7 @@ static void fg_func(commandT* cmd){
   bgjobL * target = get_bgjob_by_id(id);
   //no such job
   if(!target) {
-    printf("fg: %d: no such job\n",id);
+    // printf("fg: %d: no such job\n",id);
     return;
   }
 
@@ -655,7 +655,7 @@ static void fg_func(commandT* cmd){
     if(target->bg_status == DONE){
       fgpid = -1;
       fgstatus = DONE;
-      printf("fg: job has terminated\n");
+      // printf("fg: job has terminated\n");
     }
 
 
