@@ -73,7 +73,7 @@ bgjobL *bgjobs = NULL;
 
 //foreground process pid
 pid_t fgpid = -1;
-status_p fgstatus;
+// status_p fgstatus;
 char * fgcmd;
 
 /************Function Prototypes******************************************/
@@ -262,12 +262,13 @@ static void Exec(commandT* cmd, bool forceFork)
 
       if(setpgid(0,0)== -1) perror("setsid error");
       execv(cmd->name,cmd->argv);
+      exit(0);
     }
     else{ //parent will have to wait for a child to terminate
       
       //if it's to run foreground
       if(cmd -> bg == 0){
-        fgstatus = RUNNING;
+        // fgstatus = RUNNING;
         fgpid = rc;
         fgcmd = cmd->cmdline;
         sigprocmask(SIG_UNBLOCK,&mask,NULL);
@@ -563,27 +564,30 @@ static void jobs_func(){
       sprintf(str,"[%d]   Done             %s\n", id_removed, cmd_removed);
       
       write(STDOUT_FILENO, str, strlen(str));
-      // free(str);
-      
-      // printf("[%d]   Done             %s\n", );
+
     }
     if (iteration->bg_status == RUNNING)
-      {
-        char *command = (char *) malloc(500 * sizeof(char));
-        strcpy(command, iteration->cmd);
-        if (command[strlen(command) - 1] != '&') strcat(command, "&");
-        printf("[%d]      Running                  %s\n", iteration->id, command);
-        fflush(stdout);
-        free(command);
-      }
-      else if (iteration->bg_status == SUSPENDED)
-      {
-        printf("[%d]      Stopped                  %s\n", iteration->id, iteration->cmd);
-        fflush(stdout);
-      }
+    {
+      char *command = (char *) malloc(500 * sizeof(char));
+      strcpy(command, iteration->cmd);
+      if (command[strlen(command) - 1] != '&') strcat(command, " &");
+
+      char str[200];
+      sprintf(str,"[%d]   Running             %s\n", iteration->id, command);
       
-
-
+      write(STDOUT_FILENO, str, strlen(str));
+      // printf("[%d]                        %s\n", iteration->id, command);
+      fflush(stdout);
+      free(command);
+    }
+    else if (iteration->bg_status == SUSPENDED)
+    {
+      char str[200];
+      sprintf(str,"[%d]   Stopped             %s\n", iteration->id, iteration->cmd);
+      
+      write(STDOUT_FILENO, str, strlen(str));
+      fflush(stdout);
+    }
     // if(iteration->bg_status == DONE) {
     //   pid_t id_removed = iteration->id;
     //   status_p status_removed = DONE;
@@ -654,14 +658,14 @@ static void fg_func(commandT* cmd){
     //the job is already done
     if(target->bg_status == DONE){
       fgpid = -1;
-      fgstatus = DONE;
+      // fgstatus = DONE;
       // printf("fg: job has terminated\n");
     }
 
 
     else{
       fgpid = target->pid;
-      fgstatus = target -> bg_status;
+      // fgstatus = target -> bg_status;
       // printf("cont_f%d\n", kill(-fgpid, SIGCONT));
       kill(-fgpid, SIGCONT);
       waitfg();

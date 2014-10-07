@@ -54,7 +54,7 @@
 
 /************Global Variables*********************************************/
 extern pid_t fgpid;
-extern status_p fgstatus;
+// extern status_p fgstatus;
 extern char * fgcmd;
 
 /************Function Prototypes******************************************/
@@ -145,22 +145,27 @@ static void child_handler(){
   if (fgpid == childpid){
     remove_job(fgpid);
     fgpid =-1;
-    fgstatus = DONE;
+    // fgstatus = DONE;
     return;
   }
-  //if the caught pid is bachground
-  bgjobL* target = get_bgjob_by_pid(childpid);
-  if(!target) {return;}
-  else {
-    if (WIFSTOPPED(status)){
-      // printf("SUSPENDED!\n");
-      target->bg_status = SUSPENDED;
-    }
-    else{
-      // printf("it's done\n");
-      target->bg_status = DONE;
+
+  else{
+    bgjobL* target = get_bgjob_by_pid(childpid);
+    if(!target) {return;}
+    else {
+      // if()
+      if (WIFSTOPPED(status)){
+        // printf("SUSPENDED!\n");
+        target->bg_status = SUSPENDED;
+      }
+      else{
+        // printf("it's done\n");
+        target->bg_status = DONE;
+      }
     }
   }
+  //if the caught pid is bachground
+  
   return;
 }
 
@@ -177,7 +182,7 @@ static void stop_handler(){
   // if(!lastJob) printf("null\n");
       
       char str[200];
-      sprintf(str,"[%d]    %s         %s\n", 
+      sprintf(str,"[%d]   %s         %s\n", 
         lastJob ? lastJob->id + 1 : 1, "Stopped", fgcmd);
       
       write(STDOUT_FILENO, str, strlen(str));
