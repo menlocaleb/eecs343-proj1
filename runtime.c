@@ -89,6 +89,11 @@ static void Exec(commandT*, bool);
 static void RunBuiltInCmd(commandT*);
 /* checks whether a command is a builtin command */
 static bool IsBuiltIn(char*);
+
+void RunCmdPipe(commandT**, int n);
+void RunCmdRedirOut(commandT* cmd, char* file);
+void RunCmdRedirIn(commandT* cmd, char* file);
+void RunCmdRedir(commandT** cmd);
 /************External Declaration*****************************************/
 
 /*bckground job list methods*/
@@ -124,6 +129,8 @@ static void alias_func(commandT*);
 
 static void unalias_func(commandT*);
 
+
+
 /**************Implementation***********************************************/
 int total_task;
 void RunCmd(commandT** cmd, int n)
@@ -131,11 +138,28 @@ void RunCmd(commandT** cmd, int n)
   // printf("!!!%s\n",cmd[0]->cmdline );
   int i;
   total_task = n;
-  if(n == 1)
-    RunCmdFork(cmd[0], TRUE);
+  printf("tasks:%d\n", total_task);
+  if(n == 1){
+    if (cmd[0]->is_redirect_in && cmd[0]->is_redirect_out){
+      RunCmdRedir(cmd);
+    }
+    else if (cmd[0]->is_redirect_in){
+      RunCmdRedirIn(cmd[0], cmd[0]->redirect_in);
+    }
+    else if (cmd[0]->is_redirect_out){
+      RunCmdRedirOut(cmd[0], cmd[0]->redirect_out);
+    }
+    else {
+      RunCmdFork(cmd[0], TRUE);
+    }
+  }
+
+    
   else{
-    RunCmdPipe(cmd[0], cmd[1]);
-    for(i = 0; i < n; i++)
+    
+    for(i = 0; i < n-1; i++){
+      RunCmdPipe(cmd, n);
+    }
       ReleaseCmdT(&cmd[i]);
   }
 }
@@ -159,18 +183,91 @@ void RunCmdBg(commandT* cmd)
 
 }
 
-void RunCmdPipe(commandT* cmd1, commandT* cmd2)
+void RunCmdPipe(commandT** cmds, int n)
 {
+  int i;
+  printf("%d\n", n);
+  int temp = 0;
+  int pd[2];
+
+  for( i=0; i<n; i++)
+  {
+    
+    if (pipe(pd) == -1){
+
+    perror("Error pipe");
+    exit(EXIT_FAILURE);
+    }
+    // printf("cmds[i]%s\n",cmds[i]->cmdline);
+    if (!fork()) {
+        dup2(temp, 0); 
+        if (i+1 != n){
+          dup2(pd[1],1);
+        }
+        close(pd[0]);
+        RunCmdFork(cmds[i], TRUE);
+
+        perror("execch");
+        
+    }
+
+    // remap output from previous child to input
+    else {
+      wait(NULL);
+      close(pd[1]);
+      temp = pd[0];
+    }
+  }
+
+  close(pd[0]);
+  close(pd[1]);
 }
 
-void RunCmdRedirOut(commandT* cmd, char* file)
+void RunCmdRedirOut(commandT* cmd, char* file_o)
 {
+  int output = dup(1); //need to save the stdout to restore
+  int fd_out = open(file_o, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+  if (fd_out == -1)
+  {
+    return;
+    perror("File");
+  }
+  dup2(fd_out, 1);
+  RunCmdFork(cmd, TRUE);
+  //restore
+  dup2(output, 1);
+  close(fd_out);
 }
 
-void RunCmdRedirIn(commandT* cmd, char* file)
+void RunCmdRedirIn(commandT* cmd, char* file_i)
 {
+  int input = dup(0);
+  int fd_in = open(file_i, O_RDONLY);
+  if (fd_in == -1)
+  {
+    return;
+  }
+  dup2(fd_in, 0);
+  
+  RunCmdFork(cmd, TRUE);
+  //restore
+  dup2(input, 0);
+  close(fd_in);
 }
 
+void RunCmdRedir(commandT** cmd){
+  int input = dup(0);
+  int output = dup(1);
+  int fileIn = open(cmd[0]->redirect_in, O_RDONLY);
+  int fileOut =  open(cmd[0]->redirect_out, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+  dup2(fileIn, 0);
+  dup2(fileOut, 1);
+  RunCmdFork(cmd[0], TRUE);
+  dup2(input, 0);
+  dup2(output, 1);
+  close(fileIn);
+  close(fileOut);
+}
 
 /*Try to run an external command*/
 static void RunExternalCmd(commandT* cmd, bool fork)
