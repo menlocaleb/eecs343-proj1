@@ -87,7 +87,7 @@ int main (int argc, char *argv[])
   while (!forceExit) /* repeat forever */
   {
     // char *cur_dir = get_current_dir_name();
-    printf("!prompt:%d",fgpid);
+    // printf("!prompt:%d",fgpid);
     /* read command line */
     // printf("@:%s\n",cmdLine);
     getCommandLine(&cmdLine, BUFSIZE);

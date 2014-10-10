@@ -138,7 +138,7 @@ void RunCmd(commandT** cmd, int n)
   // printf("!!!%s\n",cmd[0]->cmdline );
   int i;
   total_task = n;
-  printf("tasks:%d\n", total_task);
+  // printf("tasks:%d\n", total_task);
   if(n == 1){
     if (cmd[0]->is_redirect_in && cmd[0]->is_redirect_out){
       RunCmdRedir(cmd);
@@ -183,44 +183,30 @@ void RunCmdBg(commandT* cmd)
 
 }
 
+
 void RunCmdPipe(commandT** cmds, int n)
 {
-  int i;
-  printf("%d\n", n);
-  int temp = 0;
-  int pd[2];
+  int i, status;
+    pid_t pid = fork();
+    if (!pid){
+        for (i = 0; i < n - 1; i++){
+            int fd[2] = {-1,-1};
+            pipe(fd);
 
-  for( i=0; i<n; i++)
-  {
-    
-    if (pipe(pd) == -1){
-
-    perror("Error pipe");
-    exit(EXIT_FAILURE);
-    }
-    // printf("cmds[i]%s\n",cmds[i]->cmdline);
-    if (!fork()) {
-        dup2(temp, 0); 
-        if (i+1 != n){
-          dup2(pd[1],1);
+            if (!fork()){
+                dup2(fd[1], 1);
+                RunCmdFork(cmds[i], FALSE);
+                perror("MultiPipe error\n");
+            }
+            dup2(fd[0], 0);
+            close(fd[1]);
         }
-        close(pd[0]);
-        RunCmdFork(cmds[i], TRUE);
 
-        perror("execch");
-        
+        RunCmdFork(cmds[i], FALSE);
     }
-
-    // remap output from previous child to input
-    else {
-      wait(NULL);
-      close(pd[1]);
-      temp = pd[0];
+    else{
+        waitpid(pid, &status, 0);
     }
-  }
-
-  close(pd[0]);
-  close(pd[1]);
 }
 
 void RunCmdRedirOut(commandT* cmd, char* file_o)
@@ -232,10 +218,10 @@ void RunCmdRedirOut(commandT* cmd, char* file_o)
     return;
     perror("File");
   }
-  dup2(fd_out, 1);
+  dup2(fd_out,1);
   RunCmdFork(cmd, TRUE);
   //restore
-  dup2(output, 1);
+  dup2(output,1);
   close(fd_out);
 }
 
@@ -248,7 +234,6 @@ void RunCmdRedirIn(commandT* cmd, char* file_i)
     return;
   }
   dup2(fd_in, 0);
-  
   RunCmdFork(cmd, TRUE);
   //restore
   dup2(input, 0);
