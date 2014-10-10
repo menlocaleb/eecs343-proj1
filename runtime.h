@@ -53,6 +53,8 @@
 #define VAREXTERN(x, y) extern x;
 #endif
 
+#define MAX_NUM_ALIASES 100
+
 typedef struct command_t
 {
   char* name;
@@ -76,6 +78,12 @@ typedef struct bgjob_l {
 
   
 } bgjobL;
+
+typedef struct alias_struct {
+  int numOfAliases;
+  char* keys[MAX_NUM_ALIASES];
+  char* values[MAX_NUM_ALIASES];
+} aliasesT;
 
 /************Global Variables*********************************************/
 //builtin cmds list

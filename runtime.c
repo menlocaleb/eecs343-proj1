@@ -68,8 +68,7 @@
 /* the pids of the background processes */
 bgjobL *bgjobs = NULL;
 
-//
-
+aliasesT aliases = {0};
 
 //foreground process pid
 pid_t fgpid = -1;
@@ -129,7 +128,16 @@ static void alias_func(commandT*);
 
 static void unalias_func(commandT*);
 
+static void print_all_aliases();
 
+// -1 means no, >=0 means yes
+static int is_alias(char* command);
+
+static char* get_alias(int index);
+
+static void set_alias(commandT* cmd);
+
+static void unset_alias(commandT* cmd);
 
 /**************Implementation***********************************************/
 int total_task;
@@ -139,6 +147,16 @@ void RunCmd(commandT** cmd, int n)
   int i;
   total_task = n;
   // printf("tasks:%d\n", total_task);
+
+  // check if first command is an alias
+  int aliasIndex = is_alias(cmd[0]->argv[0]);
+  if (aliasIndex != -1) {
+    free(cmd[0]->argv[0]);
+    cmd[0]->argv[0] = malloc(sizeof(char) + strlen(get_alias(aliasIndex)));
+    strcpy(cmd[0]->argv[0], get_alias(aliasIndex)); 
+    printf("is alias\n");
+  }
+
   if(n == 1){
     if (cmd[0]->is_redirect_in && cmd[0]->is_redirect_out){
       RunCmdRedir(cmd);
@@ -768,11 +786,92 @@ static void fg_func(commandT* cmd){
 }
 
 static void alias_func(commandT* cmd){
-  printf("%s\n not implemented", cmd->argv[0]);
+  if (cmd->argc < 2) {
+    print_all_aliases();
+  } else {
+    set_alias(cmd);
+  }
 }
 
 static void unalias_func(commandT* cmd){
-  printf("%s\n not implemented", cmd->argv[0]);
+  if (cmd->argc < 2) {
+    printf("Must list an alias to remove: unalias <aliasName>\n");
+    return;
+  }
+  unset_alias(cmd);
+}
+
+static void print_all_aliases(){
+  if (aliases.numOfAliases == 0) {
+    printf("No aliases defined.\n");
+  } else {
+    printf("%d aliases defined.\n", aliases.numOfAliases);
+    int i;
+    for (i=0; i<aliases.numOfAliases; i++) {
+	printf("%s - %s\n", aliases.keys[i], aliases.values[i]);
+    }
+  }
+}
+
+// -1 means no, >=0 means yes
+static int is_alias(char* command) {
+  printf("%d aliases, checking %s\n", aliases.numOfAliases, command);
+  int i;
+  for (i=0; i<aliases.numOfAliases; i++) {
+    printf("%s is an alias\n", aliases.keys[i]);
+    if(strcmp(command,aliases.keys[i]) == 0) {
+      return i;
+    } 
+  }
+  return -1;
+}
+
+static char* get_alias(int index) {
+  if (index >= 0 && index < aliases.numOfAliases) {
+    return aliases.values[index];
+  }
+  return "";
+}
+
+static void set_alias(commandT* cmd) {
+  char* aliasFormula = cmd->argv[1];
+  printf("%s is input ot set_alias\n", aliasFormula);
+  char* equalSign = strchr(aliasFormula, '=');
+  if (equalSign == NULL) {
+    printf("To set alias please use format alias='alias value'\n");
+    return;
+  }
+  int index = equalSign - aliasFormula;
+
+  int lenOfAlias = index + 1;
+  int lenOfValue = strlen(aliasFormula) - (index + 2);
+  printf("%d alias len, %d value len\n", lenOfAlias, lenOfValue);
+  aliases.keys[aliases.numOfAliases] = malloc(sizeof(char) * lenOfAlias);
+  strncpy(aliases.keys[aliases.numOfAliases], aliasFormula, index);
+  aliases.keys[aliases.numOfAliases][lenOfAlias-1] = '\0';
+
+  aliases.values[aliases.numOfAliases] = malloc(sizeof(char) * lenOfValue);
+  strncpy(aliases.values[aliases.numOfAliases], equalSign+2, lenOfValue-1);
+  aliases.values[aliases.numOfAliases][lenOfValue-1] = '\0';
+
+  aliases.numOfAliases = aliases.numOfAliases + 1;
+  printf("%s aliased to %s\n", aliases.keys[aliases.numOfAliases-1], aliases.values[aliases.numOfAliases-1]);
+}
+
+static void unset_alias(commandT* cmd) {
+  int index = is_alias(cmd->argv[1]);
+  if (index == -1) {
+    return;
+  }
+  
+  free(aliases.keys[index]);
+  free(aliases.values[index]);
+  int i;
+  for (i=index; i < aliases.numOfAliases -1; i++) {
+    aliases.keys[i] = aliases.keys[i+1];
+    aliases.values[i] = aliases.values[i+1];
+  } 
+  aliases.numOfAliases = aliases.numOfAliases - 1;
 }
 
 // static char * status_to_string(status_p st){
