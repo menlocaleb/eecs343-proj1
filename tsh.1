@@ -1,0 +1,30 @@
+.\" NOTE: We implemented all extra requirements: pipe, io-redirection and alias
+.TH TSH 1 "tsh-A tiny shell" "Northwestern University EECS 343 Operating System - Fall 2014"
+.SH NAME 
+tsh(Tiny SHELL)
+.SH DESCRIPTION
+.B
+The tsh is a minimal version of shell that supports both external commands as well as some builtin commands
+.SH BUILT-IN COMMANDS
+.IPcd, 
+bg, 
+fg, 
+jobs
+.SH EXTRA COMMANDS
+.IPcd, 
+pipe |, 
+redirection < >, 
+alias
+.SH DESIGN APPROACH
+.B 
+#1 Apart from excuting normal foreground commands using Exec(), we also maintain a background jobs list to track all the commands specified with "&". Besides the original memeber variables, we also added cmd string and status for printing out jobs.
+
+#2 We implemented "&" by adding the job as well as its status to the list and then telling the parent process not to wait for the child process. If bg is called, we simply write the status to RUNNING and send the signal; fg is only different by telling the parent to wait
+
+#3 When it comes to swtiching between foreground and background jobs, we didn't add all both kinds to the list, but only when a job is told to run background. Problems arise whether or not we should remove the job when fg a job. If we remove the job and then decide to suspend it again, and add it to the list, but the jobs id would change from the original number, which is not right. So we don't remove it, instead, only change its status. Insert_job() function will see if the candidate exists already
+
+#4 We implemented pipe by changing file descriptors. In every round of execution, we fork a new process and set the STDIN to be the port that's set in the last round, STDOUT to be the pipe's write end. After the excuation finishes, we store the pipe's read side for next round. Redirection works the same way, but only change the file descriptors to different file ports.list.
+.SH AUTHOR
+Xiaoyang Tan - xto633 xiaoyangtan2013@u.northwestern.edu
+
+Caleb Young - csy519 calebyoung2015@u.northwestern.edu
