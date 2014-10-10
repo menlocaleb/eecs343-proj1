@@ -174,11 +174,11 @@ void RunCmd(commandT** cmd, int n)
 
     
   else{
-    
+    RunCmdPipe(cmd,n);
     for(i = 0; i < n-1; i++){
-      RunCmdPipe(cmd, n);
-    }
       ReleaseCmdT(&cmd[i]);
+    }
+      
   }
 }
 
@@ -202,29 +202,37 @@ void RunCmdBg(commandT* cmd)
 }
 
 
-void RunCmdPipe(commandT** cmds, int n)
-{
-  int i, status;
-    pid_t pid = fork();
-    if (!pid){
-        for (i = 0; i < n - 1; i++){
-            int fd[2] = {-1,-1};
-            pipe(fd);
-
-            if (!fork()){
-                dup2(fd[1], 1);
-                RunCmdFork(cmds[i], FALSE);
-                perror("MultiPipe error\n");
-            }
-            dup2(fd[0], 0);
-            close(fd[1]);
-        }
-
-        RunCmdFork(cmds[i], FALSE);
-    }
-    else{
-        waitpid(pid, &status, 0);
-    }
+void RunCmdPipe(commandT** cmd, int n){
+    int pd[2] = {-1,-1};
+    int i;
+    int out = -1;
+    pid_t rc;
+    for (i = 0; i < n; i++){
+      
+      if(pipe(pd)<0){
+        perror("Error");
+        exit(EXIT_FAILURE);
+      };
+      rc = fork();
+      if (!rc){
+        //redirect STDIN
+        dup2(out,0);
+        //close the other end
+        close(pd[0]);
+        //redirect STDOUT
+        if( i+1!= n) dup2(pd[1], 1);
+        
+        RunCmdFork(cmd[i], FALSE);
+        exit(EXIT_FAILURE);
+      }
+      else{
+        wait(NULL);
+        //store the pipe read end for next process
+        out = pd[0];
+        close(pd[1]);
+      }
+        
+  }   
 }
 
 void RunCmdRedirOut(commandT* cmd, char* file_o)
