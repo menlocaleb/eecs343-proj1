@@ -794,6 +794,10 @@ static void alias_func(commandT* cmd){
 }
 
 static void unalias_func(commandT* cmd){
+  if (cmd->argc < 2) {
+    printf("Must list an alias to remove: unalias <aliasName>\n");
+    return;
+  }
   unset_alias(cmd);
 }
 
@@ -855,7 +859,19 @@ static void set_alias(commandT* cmd) {
 }
 
 static void unset_alias(commandT* cmd) {
-
+  int index = is_alias(cmd->argv[1]);
+  if (index == -1) {
+    return;
+  }
+  
+  free(aliases.keys[index]);
+  free(aliases.values[index]);
+  int i;
+  for (i=index; i < aliases.numOfAliases -1; i++) {
+    aliases.keys[i] = aliases.keys[i+1];
+    aliases.values[i] = aliases.values[i+1];
+  } 
+  aliases.numOfAliases = aliases.numOfAliases - 1;
 }
 
 // static char * status_to_string(status_p st){
