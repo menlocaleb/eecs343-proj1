@@ -130,6 +130,8 @@ static void unalias_func(commandT*);
 
 static void print_all_aliases();
 
+static void sort_aliases();
+
 // -1 means no, >=0 means yes
 static int is_alias(char* command);
 
@@ -159,12 +161,12 @@ void RunCmd(commandT** cmd, int n)
     free(cmd[0]->argv[0]);
     char* aliasValue = get_alias(aliasIndex);
     int arg0Len = strlen(aliasValue);
-    int arg1Len = 0;
+    int arg1LenIncludingSpace = 0;
 
     char* spaceIndex = strchr(aliasValue, ' ');
     if (spaceIndex != NULL) {
        arg0Len = spaceIndex - aliasValue;
-       arg1Len = strlen(aliasValue) - arg0Len -1; // -1 for space
+       arg1LenIncludingSpace = strlen(aliasValue) - arg0Len;
     }
     
     cmd[0]->argv[0] = malloc(sizeof(char) + arg0Len + 1);
@@ -172,10 +174,30 @@ void RunCmd(commandT** cmd, int n)
     cmd[0]->argv[arg0Len] = '\0';
 
     // hack to accomodate aliases with 2 arguments 
-    if (arg1Len > 0) {
-      cmd[0]->argv[1] = malloc(sizeof(char) + arg1Len + 1);
+    if (arg1LenIncludingSpace > 1) {
+      cmd[0]->argv[1] = malloc(sizeof(char) + arg1LenIncludingSpace);
       strcpy(cmd[0]->argv[1], spaceIndex+1);
       cmd[0]->argc = cmd[0]->argc + 1;
+    } else if (arg1LenIncludingSpace > 0) {
+      // also expand next arg
+      // very hacky implementation that should be extracted in function for better code
+      aliasIndex = is_alias(cmd[0]->argv[1]);
+      if (aliasIndex != -1) {
+        free(cmd[0]->argv[1]);
+        aliasValue = get_alias(aliasIndex);
+        arg0Len = strlen(aliasValue);
+
+        cmd[0]->argv[1] = malloc(sizeof(char) + arg0Len + 1);
+        strcpy(cmd[0]->argv[1], aliasValue);
+
+        // hack to expand ~ to /home/aqualab
+        if (strcmp(cmd[0]->argv[1], "~/") == 0) {
+          free(cmd[0]->argv[1]);
+          char homeDir[14] = "/home/aqualab";
+          cmd[0]->argv[1] = malloc(sizeof(char) * strlen(homeDir));
+          strcpy(cmd[0]->argv[1], homeDir);
+        }
+      }
     }
   }
 
@@ -828,9 +850,28 @@ static void print_all_aliases(){
     //printf("No aliases defined.\n");
   } else {
     //printf("%d aliases defined.\n", aliases.numOfAliases);
+    sort_aliases();
     int i;
     for (i=0; i<aliases.numOfAliases; i++) {
-	printf("alias %s='%s'\n", aliases.keys[i], aliases.values[i]);
+      printf("alias %s='%s'\n", aliases.keys[i], aliases.values[i]);
+    }
+  }
+}
+
+static void sort_aliases() {
+  int i, j;
+  char temp[100];
+  for (i=0; i<aliases.numOfAliases; i++) {
+    for (j=0; j<aliases.numOfAliases-i-1; j++) {
+      if (strcmp(aliases.keys[j], aliases.keys[j+1]) > 0) {
+        strcpy(temp, aliases.keys[j]);
+        strcpy(aliases.keys[j], aliases.keys[j+1]);
+        strcpy(aliases.keys[j+1], temp);
+
+        strcpy(temp, aliases.values[j]);
+        strcpy(aliases.values[j], aliases.values[j+1]);
+        strcpy(aliases.values[j+1], temp);
+      }  
     }
   }
 }
