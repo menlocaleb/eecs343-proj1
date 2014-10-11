@@ -142,6 +142,38 @@ void Interpret(char* cmdLine)
 
   if(cmdLine[0] == '\0') return;
 
+  // check for alias special case
+  char alias[6];
+  strncpy(alias,cmdLine,5);
+  alias[5] = '\0';
+  if (strcmp(alias,"alias") == 0) {
+    int argc;
+    command = (commandT **) malloc(sizeof(commandT *));
+
+    if (strlen(cmdLine) > 6) {
+      argc = 2;
+    } else {
+      argc = 1;
+    }
+    (*command) = CreateCmdT(argc);
+    (*command)->name = malloc(sizeof(char) * 6);
+    (*command)->name = "alias";
+
+    (*command)->argv[0] = malloc(sizeof(char) * 6);
+    (*command)->argv[0] = "alias";
+    if (argc > 1) {
+      char* spaceIndex = strchr(cmdLine,' ');
+      int lenOfValue = strlen(cmdLine) - (spaceIndex-cmdLine);;
+      (*command)->argv[1] = malloc(sizeof(char) * lenOfValue); 
+      strncpy((*command)->argv[1],spaceIndex+1, lenOfValue);
+      (*command)->argv[1][lenOfValue-1] = '\0';
+      //printf("%s is output from interpret\n", (*command)->argv[1]);
+    }
+
+    RunCmd(command, 1);
+    return;
+  }
+
   for(i = 0; i < strlen(cmdLine); i++){
     if(cmdLine[i] == '\''){
       if(quotation2) continue;
